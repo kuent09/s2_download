@@ -261,7 +261,7 @@ def dl_S2_from_aoi(config_path, input_aoi, tuile, start_date, end_date, out_fold
             logging.debug(f'Check if aoi overlap reflectance map')
             if len(gpd.sjoin(gpf_aoi_utm, df_raster, predicate='intersects')) != 0:
                 with rasterio.open(
-                        out_path,
+                        out_path_file,
                         'w',
                         ** out_meta
                         ) as dst:
