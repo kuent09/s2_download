@@ -1,0 +1,19 @@
+{"outputs": {
+    "reflectance_map": {
+        "type": "raster", 
+        "format": "tif", 
+        "name": "Reflectance_map_B_G_R_RE705_RE740_NIR", 
+        "bands": [
+            {"name": "blue"}, 
+            {"name": "green"}, 
+            {"name": "red"}, 
+            {"name": "red_edge_705"}, 
+            {"name": "red_edge_740"}, 
+            {"name": "nir"}], 
+        "categories": ["reflectances"], 
+        "components": [{
+            "name": "raster", 
+            "path": "/home/quentin/work/cli_analytic/s2_download/sample_workdir/Reflectance_map_B_G_R_RE705_RE740_NIR.tif"}]
+            }
+        }, 
+    "version": "0.1"}

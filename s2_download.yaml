@@ -1,0 +1,61 @@
+---
+spec-version: v1.0
+name: proserv/s2_download
+version: 1.0.0
+display-name: Downlaod S2 reflectance map
+description: Download S2 reflectance map from AOI
+docker-image: registry-external.admin-tool.delair-stack.com/kuent/s2_download:v1.0
+instance-type: large
+volume-size: 100
+groups: [Agriculture]
+inputs:
+  - name: config_file
+    display-name: Pep's credentials
+    description: Configuration file with pep's credentials
+    kind: dataset
+    schema:
+      type: file
+      mission: all
+    required: true
+  - name: input_aoi
+    display-name: Polygon vector
+    description: Area to crop S2 reflectance map
+    kind: dataset
+    schema:
+      type: vector
+      mission: all
+    required: true
+parameters:
+  - name: tuile
+    display-name: S2 tuile
+    description: Number of S2 tuile [not required]
+    schema:
+      type: string
+    required: false
+  - name: start_date
+    display-name: Start date
+    description: Date to begin the search (YYYY-MM-DD)
+    schema:
+      type: string
+    required: true
+  - name: end_date
+    display-name: End date
+    description: Date to stop the search (YYYY-MM-DD)
+    schema:
+      type: string
+    required: true
+deliverables:
+  - name: reflectance_map
+    display-name: Reflectance_map_B_G_R_RE705_RE740_NIR
+    description: S2 reflectance map
+    kind: dataset
+    schema:
+      type: raster
+    required: true
+  - name: reflectance_map_crop
+    display-name: Reflectance_map_B_G_R_RE705_RE740_NIR_crop
+    description: S2 reflectance map cropped by AOI
+    kind: dataset
+    schema:
+      type: raster
+    required: true
