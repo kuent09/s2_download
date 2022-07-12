@@ -139,20 +139,14 @@ def dl_S2_from_aoi(config_path, input_aoi, tuile, start_date, end_date, out_fold
 
     satellite = 'S2ST'
 
-    #out_path_file = 'Reflectance_map_B_G_R_RE705_RE740_NIR.tif'
-
     ### Extract BBOX of project to get the AOI
     gpf_aoi = gpd.read_file(input_aoi)
-    #x = gpf_aoi.centroid.x[0]
-    #y = gpf_aoi.centroid.y[0]
-    #logging.debug('Extract centroid')
 
     satellite = 'S2ST'
 
     ### Download S2 image
     logging.debug('Launch S2 download')
     script = '/opt/task/peps_download.py'
-    #script = './sample_workdir/peps_download.py' 
     if tuile is not None:
         logging.debug(f'Launch S2 download on the tuile: {tuile}')
         cmd = [
@@ -215,44 +209,39 @@ def dl_S2_from_aoi(config_path, input_aoi, tuile, start_date, end_date, out_fold
             logging.debug(f'Get reflectance band, number of bands is {len(lst_jp2)}')
             lst_jp2_sorted = sorted(lst_jp2)
             ### Write the S2 reflectance map
-            #out_path_file = os.path.join('/data', out_name_file) 
             out_path_file = os.path.join(out_folder, out_name_file) 
             logging.debug(f'Write reflectance map: {out_name_file}')
 
             f = rasterio.open(lst_jp2_sorted[0])
             bounds = f.bounds
             crs = int(f.crs.to_string().split(':')[1])
-            lst_rasters = []
-            for i, tiff in enumerate(lst_jp2_sorted, start =1):
-                with rasterio.open(tiff) as dataset:
-                    
-                    pixel_per_meter = float(10)
-                    ratio = dataset.transform[0]/ float(pixel_per_meter)
-                    print(ratio)
-                    
-                    data = dataset.read(
-                            out_shape=(dataset.count, int(dataset.height * ratio ), int(dataset.width *ratio )),
-                            resampling=Resampling.gauss
-                        )
-                    
-                    # scale image transform
-                    transf = dataset.transform * dataset.transform.scale(
-                        (dataset.width / data.shape[-1]),
-                        (dataset.height / data.shape[-2])
+            with rasterio.open(f) as dataset:
+                
+                pixel_per_meter = float(10)
+                ratio = dataset.transform[0]/ float(pixel_per_meter)
+                print(ratio)
+                
+                data = dataset.read(
+                        out_shape=(dataset.count, int(dataset.height * ratio ), int(dataset.width *ratio )),
+                        resampling=Resampling.gauss
                     )
-                    #transf = Affine(pixel_per_meter, dataset.transform[1], dataset.transform[2], dataset.transform[3], -pixel_per_meter, dataset.transform[5])
-                    out_meta = dataset.meta.copy()
-                    out_meta.update({'driver': 'GTiff',
-                                    'dtype': data.dtype,
-                                    'count': len(lst_jp2_sorted),
-                                    'compress': 'lzw',
-                                    'BIGTIFF': 'YES',
-                                    'width': data.shape[2],
-                                    'height': data.shape[1],
-                                    'crs': dataset.crs,
-                                    'nodata': dataset.nodata,
-                                    'transform': transf})
-                    lst_rasters.append(data)
+                
+                # scale image transform
+                transf = dataset.transform * dataset.transform.scale(
+                    (dataset.width / data.shape[-1]),
+                    (dataset.height / data.shape[-2])
+                )
+                out_meta = dataset.meta.copy()
+                out_meta.update({'driver': 'GTiff',
+                                'dtype': data.dtype,
+                                'count': len(lst_jp2_sorted),
+                                'compress': 'lzw',
+                                'BIGTIFF': 'YES',
+                                'width': data.shape[2],
+                                'height': data.shape[1],
+                                'crs': dataset.crs,
+                                'nodata': dataset.nodata,
+                                'transform': transf})
             
 
             gpf_aoi_utm = gpf_aoi.to_crs(crs)
@@ -269,35 +258,16 @@ def dl_S2_from_aoi(config_path, input_aoi, tuile, start_date, end_date, out_fold
                                 with rasterio.open(src) as src1:
                                         dst.write(src1.read(1), band_nr)
 
-                # with rasterio.open(
-                #         out_path_file, 'w',
-                #         driver='GTiff',
-                #         dtype=rasterio.uint16,
-                #         count=len(lst_jp2_sorted),
-                #         compress='lzw',
-                #         BIGTIFF='YES',
-                #         width=f.width,
-                #         height=f.height,
-                #         crs=f.crs,
-                #         nodata=f.nodata,
-                #         transform=f.transform
-                #         ) as dst:
-                #         for band_nr, src in enumerate(lst_jp2_sorted, start=1):
-                #             with rasterio.open(src) as src1:
-                #                 dst.write(src1.read(1), band_nr)
-                
                 ### Crop reflectance map
                 out_name_file_crop = out_name_file[:-4]+'_crop.tif'
                 logging.debug(f'Crop reflectance map: {out_name_file} in {out_name_file_crop}')
                 # Outputs
-                #output_path = os.path.join('/data', out_name_file_crop)
                 output_path = os.path.join(out_folder, out_name_file_crop)
                 output_crs = crs
                 output_dtype = np.float32
                 output_nodata = -10000
 
                 # Load inputs
-                #gpf_aoi_utm = gpf_aoi.to_crs(output_crs)
                 gpf_aoi_utm['geometry'] = gpf_aoi_utm.geometry.buffer(150)
                 raster = rasterio.open(out_path_file)
                 #output_crs = raster.crs

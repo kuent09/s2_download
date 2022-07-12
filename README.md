@@ -1,5 +1,4 @@
 # s2_download
-The code containing in this folder is to deploy a custom analytic for Alteia's platform. All steps are here  https://alteia.helpjuice.com/en_US/sdk-and-cli/custom-analytics
 
 In this project, there are all files to create a custom analytic. 
 
