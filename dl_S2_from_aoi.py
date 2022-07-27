@@ -17,6 +17,8 @@ import rasterio.mask
 import rasterio.warp
 import rasterio.plot
 import rasterio.crs
+from rasterio.transform import Affine
+from rasterio.warp import  Resampling
 import shapely.geometry
 
 class RasterFragment:
@@ -92,9 +94,38 @@ class RasterFragment:
         with rasterio.open(path, "w", **profile) as output_raster:
             output_raster.write(image)
 
+
+def resampling(input_raster, output_raster, pixel_per_meter):
+
+    with rasterio.open(input_raster) as dataset:
+
+        pixel_per_meter = float(pixel_per_meter)
+        ratio = dataset.transform[0]/ float(pixel_per_meter)
+
+        data = dataset.read(
+            out_shape=(dataset.count, int(dataset.height * ratio ), int(dataset.width *ratio )),
+            resampling=Resampling.cubic
+        )
+
+        transf = Affine(pixel_per_meter, dataset.transform[1], dataset.transform[2], dataset.transform[3], -pixel_per_meter, dataset.transform[5])
+
+        with rasterio.open(
+            output_raster,
+            "w",
+            driver="GTiff",
+            height=data.shape[1],
+            width=data.shape[2],
+            count=dataset.count,
+            compress='lzw',
+            dtype=data.dtype,
+            crs=dataset.crs,
+            transform=transf,
+            nodata=dataset.nodata
+        ) as dst:
+            dst.write(data)
+
 LOG_FORMAT = '[%(levelname)s] %(message)s'
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format=LOG_FORMAT)
-
 
 def handle_end_of_command_execution(proc) -> None:
     """
@@ -106,7 +137,6 @@ def handle_end_of_command_execution(proc) -> None:
             proc.returncode))
         sys.exit(1)
     return
-
 
 def follow_command_execution(proc):
     """
@@ -120,7 +150,6 @@ def follow_command_execution(proc):
 
     handle_end_of_command_execution(proc)
 
-
 def run_a_command(command):
     """
     Run the specified command, and returns the process object
@@ -133,7 +162,6 @@ def run_a_command(command):
                             shell=False
                             )
     return proc
-
 
 def dl_S2_from_aoi(config_path, input_aoi, tuile, start_date, end_date, out_folder):
 
@@ -208,55 +236,28 @@ def dl_S2_from_aoi(config_path, input_aoi, tuile, start_date, end_date, out_fold
         
             logging.debug(f'Get reflectance band, number of bands is {len(lst_jp2)}')
             lst_jp2_sorted = sorted(lst_jp2)
+            for raster in lst_jp2_sorted:
+                resampling(raster, raster[:-4]+'.tif', 10.0)
+                lst_rasters.append(raster[:-4]+'.tif')
             ### Write the S2 reflectance map
             out_path_file = os.path.join(out_folder, out_name_file) 
             logging.debug(f'Write reflectance map: {out_name_file}')
 
             f = rasterio.open(lst_jp2_sorted[0])
+            out_meta = f.meta.copy()
+            out_meta.update({'count': len(lst_rasters)})
             bounds = f.bounds
             crs = int(f.crs.to_string().split(':')[1])
-            with rasterio.open(f) as dataset:
-                
-                pixel_per_meter = float(10)
-                ratio = dataset.transform[0]/ float(pixel_per_meter)
-                print(ratio)
-                
-                data = dataset.read(
-                        out_shape=(dataset.count, int(dataset.height * ratio ), int(dataset.width *ratio )),
-                        resampling=Resampling.gauss
-                    )
-                
-                # scale image transform
-                transf = dataset.transform * dataset.transform.scale(
-                    (dataset.width / data.shape[-1]),
-                    (dataset.height / data.shape[-2])
-                )
-                out_meta = dataset.meta.copy()
-                out_meta.update({'driver': 'GTiff',
-                                'dtype': data.dtype,
-                                'count': len(lst_jp2_sorted),
-                                'compress': 'lzw',
-                                'BIGTIFF': 'YES',
-                                'width': data.shape[2],
-                                'height': data.shape[1],
-                                'crs': dataset.crs,
-                                'nodata': dataset.nodata,
-                                'transform': transf})
             
-
             gpf_aoi_utm = gpf_aoi.to_crs(crs)
             df_raster = gpd.GeoDataFrame({"id":1,"geometry":[box(*bounds)]}, crs = crs)
             
             logging.debug(f'Check if aoi overlap reflectance map')
             if len(gpd.sjoin(gpf_aoi_utm, df_raster, predicate='intersects')) != 0:
-                with rasterio.open(
-                        out_path_file,
-                        'w',
-                        ** out_meta
-                        ) as dst:
-                            for band_nr, src in enumerate(lst_jp2_sorted, start=1):
-                                with rasterio.open(src) as src1:
-                                        dst.write(src1.read(1), band_nr)
+                with rasterio.open(out_path_file, 'w', **out_meta) as dst:
+                    for id, layer in enumerate(lst_rasters, start=1):
+                        with rasterio.open(layer) as src1:
+                            dst.write_band(id, src1.read(1))  
 
                 ### Crop reflectance map
                 out_name_file_crop = out_name_file[:-4]+'_crop.tif'
